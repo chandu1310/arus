@@ -1,6 +1,7 @@
 package arus.indexer.model;
 
-import java.util.ArrayList;
+import java.io.BufferedWriter;
+import java.util.Vector;
 
 public class Resource {
 	private String filename;
@@ -23,12 +24,15 @@ public class Resource {
 
 	private String version;
 	private boolean isDir = false;
-	private ArrayList<Resource> resoucesList;
+	private Vector<Resource> resoucesList;
 
 	public Resource(boolean isDir) {
 		this.isDir = isDir;
-		if (isDir)
-			resoucesList = new ArrayList<Resource>();
+		resoucesList = new Vector<Resource>();
+	}
+
+	public boolean isDir() {
+		return isDir;
 	}
 
 	public void addResource(Resource rsc) {
@@ -38,9 +42,37 @@ public class Resource {
 	}
 
 	public Resource[] getResourceList() {
-		return (Resource[]) this.resoucesList.toArray();
+		Resource[] t = new Resource[this.resoucesList.size()];
+ 		return this.resoucesList.toArray(t);
 	}
 
+	public void writeXML(BufferedWriter writer) throws Exception
+	{
+		if(isDir())
+		{			
+			writer.write("<dir fname=\""+filename+"\" version=\""+version+"\">\n");
+			for(Resource i: getResourceList())
+			{
+				i.writeXML(writer);				
+			}
+			writer.write("</dir>\n");
+		}
+		else
+		{
+//			System.out.println(filename);
+			String name = filename;
+			String extension = "";
+			if(filename.indexOf('.') != -1)
+			{
+				name = name.substring( 0, filename.indexOf('.') );
+				extension = filename.substring( filename.indexOf('.')+1 );
+			}
+			writer.write("<file fname=\""+name+"\" extension=\""+extension+"\" version=\""+version+"\" />\n");
+			
+		}		
+	}
+
+	
 	// print all the file names and directory names of this resource.
 	// if the resource has folder type resources, call toString on them.
 	public String toString() {
