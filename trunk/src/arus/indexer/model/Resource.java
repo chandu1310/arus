@@ -3,9 +3,18 @@ package arus.indexer.model;
 import java.io.BufferedWriter;
 import java.util.Vector;
 
+/**
+ * Resource class represents each and every resource of a software to be indexed.
+ * @author chandu
+ *
+ */
 public class Resource {
 	private String filename;
 
+	/**
+	 * 
+	 * @return 
+	 */
 	public String getFilename() {
 		return filename;
 	}

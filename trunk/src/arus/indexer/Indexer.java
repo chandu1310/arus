@@ -1,9 +1,14 @@
 package arus.indexer;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import arus.indexer.model.Resource;
 
@@ -37,7 +42,7 @@ public class Indexer {
 
 	public void reIndex() throws Exception
 	{
-		if(rsc == null || !isIndexed )    
+		if(rsc == null || !isIndexed )
 		{
 			File parentDir = new File(INST_TOP);
 			rsc = new Resource(true);
@@ -86,16 +91,49 @@ public class Indexer {
 				System.out.println(t.getFilename());
 		}
 	}
+	
+	private ZipOutputStream createArchiveFile(String filename)
+	{
+		ZipOutputStream out = null;
+		try
+		{
+			out = new ZipOutputStream(new 
+		    BufferedOutputStream(new FileOutputStream(filename)));
+		}
+		catch(Exception e)
+		{
+			e.printStackTrace();
+		}
+		return out;
+	}	
+	
+	private void writeFileToArchieve(ZipOutputStream zout, String entry, File f) throws Exception
+	{
+		byte[] data = new byte[1000];               
+		BufferedInputStream in = new BufferedInputStream(new FileInputStream(f));
+		int count;
+	
+		zout.putNextEntry(new ZipEntry(entry));
+		
+		while((count = in.read(data,0,1000)) != -1)
+		{      
+			zout.write(data, 0, count);
+		}
+		in.close();
+		zout.flush();
+		System.out.println("File: "+entry+" is zipped");		
+	}
+	
 
-	public void generateXML(String applicationName,
+	public void generatePatchDescriptor(String applicationName,
 							String author,
 							String key,
-							String filename)
+							File configfile)
 	{				
 		try {
 			BufferedWriter writer = new BufferedWriter( 
 										new OutputStreamWriter (
-													new FileOutputStream(filename) ) );
+													new FileOutputStream(configfile) ) );
 			if(rsc != null)
 			{
 				String str = "<arus application-name=\""+applicationName+"\" version=\""+versionString+"\" owner=\""+author+"\" key=\""+key+"\">\n";
@@ -103,21 +141,77 @@ public class Indexer {
 				rsc.writeXML(writer);
 				writer.write("</arus>\n");
 			}
+			writer.close();
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
 	
-
+	public void generatePatch(	String applicationName,
+								String author,
+								String key,
+								String patchLocation) throws Exception
+	{
+		String configfilename=patchLocation+"\\"+applicationName+"_arus-config.pen";		
+		File configfile = new File(configfilename);
+		if(configfile.exists())
+		{
+			// TODO: Resolve the version differences and update 
+			//the conf file and archives.
+			// - Regenerate the rsc variable.
+		}
+		else
+		{
+			// TODO: Index and generate the config file and create archive 
+			//with initial version. reIndex is necessary to populate rsc variable.
+			reIndex();
+			generatePatchDescriptor(applicationName, author, key, configfile);
+			File instFile = new File(patchLocation);
+			if(!instFile.exists())
+				instFile.mkdir();
+			ZipOutputStream zout = createArchiveFile(patchLocation+"\\"+applicationName+"_aruspatch_"+versionString+".zip");
+			writeResourceToArchieve(rsc, ".", zout, configfile);
+			zout.close();
+		}
+	}
 	
-	public static void main(String[] args) {
-		
+	private void writeResourceToArchieve(Resource r, String path, ZipOutputStream zout, File configFile) throws Exception
+	{
+		if(".".equals(path))			
+		{
+			writeFileToArchieve(zout, configFile.getName(), configFile);
+			path = "";
+			for(Resource t: r.getResourceList())
+			{
+				writeResourceToArchieve(t, path, zout, configFile);
+			}
+		}
+		else
+		{
+			if(r.isDir())
+			{
+				path=path+"\\"+r.getFilename();
+				for(Resource t: r.getResourceList())
+				{
+					writeResourceToArchieve(t, path, zout, configFile);
+				}
+			}
+			else
+			{
+				String filePath=INST_TOP+path+"\\"+r.getFilename();
+				File af = new File(filePath);
+				writeFileToArchieve(zout, path+"\\"+r.getFilename(), af);
+			}
+		}
+	}
+	
+	public static void main(String[] args) {		
 		try {
-			Indexer ind = new Indexer("D:\\Uday Projects\\ARUS\\Source\\Eclipse Workspace\\MyTestSoftware");
-			ind.reIndex();
-//			ind.displayIndex(ind.getIndexedResource());
-			ind.generateXML("WinHTT", "Uday", "02241a1210", "output.xml");
+			Indexer ind = new Indexer("D:\\Temp\\arus-test\\DemoApplication");
+//			ind.reIndex();
+			//ind.displayIndex(ind.getIndexedResource());
+			ind.generatePatch("DemoApplication", "Chandu", "02241a1210", "D:\\Temp\\arus-test\\DemoApplication-patches");
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
